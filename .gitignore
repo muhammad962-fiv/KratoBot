@@ -25,5 +25,12 @@ yarn-error.log
 # railway
 .railway
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
 # Production builds
 /out
