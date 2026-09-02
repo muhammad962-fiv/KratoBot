@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sentence-transformers
+keybert
+transformers
+torch
+google-generativeai
+python-dotenv
+python-multipart
