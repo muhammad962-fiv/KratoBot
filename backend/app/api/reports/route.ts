@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import cors, { withCors } from "../../../utils/cors";
 import { verifyJWT } from "../../../middleware/auth";
 import { pool } from "../../../config/database";
+import { reportCache } from "../../../utils/cache";
 
 export const OPTIONS = cors;
 
@@ -12,6 +13,18 @@ export const GET = withCors(async function (req: NextRequest) {
 
     const url = new URL(req.url);
     const project_id = url.searchParams.get("project_id");
+
+    // Check cache
+    const cacheKey = project_id
+      ? `reports:${user.user_id}:project:${project_id}`
+      : `reports:${user.user_id}:all`;
+    const cached = reportCache.get(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        status: 200,
+        headers: { "Cache-Control": "private, max-age=30" },
+      });
+    }
 
     let rows: any[] = [];
 
@@ -43,7 +56,13 @@ export const GET = withCors(async function (req: NextRequest) {
       rows = resp as any[];
     }
 
-    return NextResponse.json({ reports: rows }, { status: 200 });
+    const result = { reports: rows };
+    reportCache.set(cacheKey, result);
+
+    return NextResponse.json(result, {
+      status: 200,
+      headers: { "Cache-Control": "private, max-age=30" },
+    });
   } catch (e: any) {
     return NextResponse.json(
       { error: e.message || "Server error" },

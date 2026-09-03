@@ -4,7 +4,7 @@ import { URL } from "url";
 
 export async function scrapeWebsite(
   startUrl: string,
-  maxPages = 10
+  maxPages = 5
 ): Promise<{ url: string; html: string; text: string }[]> {
 
   const visited = new Set<string>();

@@ -4,6 +4,7 @@ import cors, { withCors } from "../../../utils/cors";
 import { verifyJWT } from "../../../middleware/auth";
 import { pool } from "../../../config/database";
 import { runOrchestrator } from "../../../services/orchestrator";
+import { projectCache, reportCache } from "../../../utils/cache";
 
 export const OPTIONS = cors;
 
@@ -105,6 +106,12 @@ export const POST = withCors(async function (req: NextRequest) {
     const report_id = reportRes.insertId;
 
     await conn.commit();
+
+    // Invalidate caches since project + report data changed
+    projectCache.invalidatePrefix(`projects:${user.user_id}`);
+    projectCache.invalidatePrefix(`project:${user.user_id}:${project_id}`);
+    reportCache.invalidatePrefix(`reports:${user.user_id}`);
+    reportCache.invalidatePrefix(`report:${user.user_id}`);
 
     runOrchestrator({
       project_id,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import cors, { withCors } from "../../../../utils/cors";
 import { verifyJWT } from "../../../../middleware/auth";
 import { pool } from "../../../../config/database";
+import { projectCache } from "../../../../utils/cache";
 
 function getProjectId(req: NextRequest): number | null {
   const id = req.nextUrl.pathname.split("/").filter(Boolean).pop();
@@ -18,20 +19,42 @@ export const GET = withCors(async function (req: NextRequest) {
     const project_id = getProjectId(req);
     if (!project_id) return NextResponse.json({ error: "Invalid project ID" }, { status: 400 });
 
-    // Get project and its competitors
-    const [projects]: any = await pool.query(
-      "SELECT * FROM Projects WHERE project_id = ? AND user_id = ? LIMIT 1",
-      [project_id, user.user_id]
-    );
+    // Check cache
+    const cacheKey = `project:${user.user_id}:${project_id}`;
+    const cached = projectCache.get(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        status: 200,
+        headers: { "Cache-Control": "private, max-age=30" },
+      });
+    }
+
+    // Run both queries in parallel (they're independent)
+    const [projectResult, competitorResult]: any[] = await Promise.all([
+      pool.query(
+        "SELECT * FROM Projects WHERE project_id = ? AND user_id = ? LIMIT 1",
+        [project_id, user.user_id]
+      ),
+      pool.query(
+        "SELECT * FROM Competitors WHERE project_id = ? ORDER BY created_at ASC",
+        [project_id]
+      ),
+    ]);
+
+    const projects = projectResult[0];
+    const competitors = competitorResult[0];
+
     if (!projects[0]) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const [competitors] = await pool.query(
-      "SELECT * FROM Competitors WHERE project_id = ? ORDER BY created_at ASC",
-      [project_id]
-    );
     projects[0].competitors = competitors;
 
-    return NextResponse.json({ project: projects[0] }, { status: 200 });
+    const result = { project: projects[0] };
+    projectCache.set(cacheKey, result);
+
+    return NextResponse.json(result, {
+      status: 200,
+      headers: { "Cache-Control": "private, max-age=30" },
+    });
   } catch (e) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
@@ -74,6 +97,11 @@ export const PUT = withCors(async function (req: NextRequest) {
     }
 
     await conn.commit();
+
+    // Invalidate cache on write
+    projectCache.invalidatePrefix(`projects:${user.user_id}`);
+    projectCache.invalidatePrefix(`project:${user.user_id}:${project_id}`);
+
     return NextResponse.json({ message: "Project and competitors updated" }, { status: 200 });
   } catch (e: any) {
     await conn.rollback();
@@ -101,6 +129,11 @@ export const DELETE = withCors(async function (req: NextRequest) {
     if (delResult.affectedRows === 0) throw new Error("Not found");
 
     await conn.commit();
+
+    // Invalidate cache on write
+    projectCache.invalidatePrefix(`projects:${user.user_id}`);
+    projectCache.invalidatePrefix(`project:${user.user_id}:${project_id}`);
+
     return NextResponse.json({ message: "Project deleted" }, { status: 200 });
   } catch (e: any) {
     await conn.rollback();
