@@ -71,6 +71,11 @@ function computeAuthority({
 }
 
 // Fetch domain metrics via Apify
+const APIFY_ACTOR_ID = "y7fDLFautapqoAg0v";
+/* apify-client polls indefinitely when waitSecs is omitted, so a queued or wedged
+   actor run leaves the whole report stuck in 'processing' with no output at all. */
+const APIFY_WAIT_SECS = 180;
+
 async function fetchMetrics(domain: string): Promise<{
   domain_score: number;
   referring_domains_count: number;
@@ -82,10 +87,43 @@ async function fetchMetrics(domain: string): Promise<{
     timeout: 60,
   };
 
-  const run = await client.actor("y7fDLFautapqoAg0v").call(input);
+  const startedAt = Date.now();
+  console.log(`[APIFY START] ${domain} (waitSecs=${APIFY_WAIT_SECS})`);
+
+  const run = await client
+    .actor(APIFY_ACTOR_ID)
+    .call(input, { waitSecs: APIFY_WAIT_SECS });
+
+  const secs = Math.round((Date.now() - startedAt) / 1000);
+
+  /* On timeout .call() resolves with the still-unfinished run instead of throwing,
+     so the status has to be checked explicitly or zeroed metrics look like real data. */
+  if (run.status !== "SUCCEEDED") {
+    console.error(`[APIFY ${run.status}] ${domain} after ${secs}s`);
+    throw new Error(
+      `Apify run for ${domain} ended as ${run.status} after ${secs}s`
+    );
+  }
+
   const { items } = await client.dataset(run.defaultDatasetId).listItems();
 
-  const v = items[0] || {};
+  const v: any = items[0] || {};
+
+  /* A SUCCEEDED run can still hand back an empty dataset, which silently degrades
+     to zeroed metrics and publishes a 'ready' report with 0 backlinks. The brand is
+     processed last, so it is the run that absorbs any rate limit or flaky response. */
+  if (items.length === 0) {
+    console.warn(
+      `[APIFY EMPTY] ${domain} in ${secs}s - run SUCCEEDED but returned no rows`
+    );
+  }
+
+  console.log(
+    `[APIFY DONE] ${domain} in ${secs}s | items=${items.length}` +
+      ` | domain_score=${v.domain_score ?? "-"}` +
+      ` refdomains=${v.referring_domains_count ?? "-"}` +
+      ` links=${v.total_link_count ?? "-"}`
+  );
 
   return {
     domain_score: Number(v.domain_score) || 0,
@@ -96,6 +134,32 @@ async function fetchMetrics(domain: string): Promise<{
 
 
 /* ---------------- SAFE SCRAPE ---------------- */
+
+/* Crawling every competitor at once (each up to 5 pages) opens dozens of
+   simultaneous connections, which overwhelms the local DNS resolver and shows
+   up as ENOTFOUND / timeouts on sites that are actually reachable. Running a
+   small number at a time keeps the crawl reliable. */
+const SCRAPE_CONCURRENCY = 2;
+
+async function mapWithLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i], i);
+    }
+  });
+
+  await Promise.all(workers);
+  return results;
+}
 
 async function buildRawSite(domain: string, isBrand: boolean) {
   try {
@@ -203,10 +267,12 @@ export async function runOrchestrator({
     const rawBrand = await buildRawSite(brandDomain, true);
     const brandProcessed = await prepareSite(rawBrand);
 
-    /* ---------------- COMPETITORS (PARALLEL SAFE) ---------------- */
+    /* ---------------- COMPETITORS (BOUNDED CONCURRENCY) ---------------- */
 
-    const rawComps = await Promise.all(
-      brandCompetitorArr.map((c) => buildRawSite(c.domain, false))
+    const rawComps = await mapWithLimit(
+      brandCompetitorArr,
+      SCRAPE_CONCURRENCY,
+      (c) => buildRawSite(c.domain, false)
     );
 
     const processedComps = await Promise.all(
@@ -292,8 +358,6 @@ export async function runOrchestrator({
         authority_score: c.authority_score,
       })),
     };
-
-    console.log("[LLM INPUT READY]");
 
     const { data: llmResp } = await axios.post(LLM_API_URL, {
       data: structuredData,

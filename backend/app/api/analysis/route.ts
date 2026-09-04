@@ -76,16 +76,15 @@ export const POST = withCors(async function (req: NextRequest) {
       );
     }
 
-    await conn.query(`DELETE FROM Competitors WHERE project_id=?`, [
-      project_id,
-    ]);
+    /* Wipe this project's competitors and re-insert the incoming list, so each
+       run stores exactly one current set of rows per project. Competitor_Analytics
+       cascades off Competitors, so the previous run's analytics go with it. */
+    await conn.query(`DELETE FROM Competitors WHERE project_id=?`, [project_id]);
 
-    for (const c of competitors) {
-      if (!c.website_url) continue;
-
+    for (const comp of competitors) {
       await conn.query(
         `INSERT INTO Competitors (project_id, website_url) VALUES (?, ?)`,
-        [project_id, c.website_url]
+        [project_id, comp.website_url]
       );
     }
 

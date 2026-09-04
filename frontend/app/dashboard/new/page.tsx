@@ -1,74 +1,42 @@
-// frontend/app/dashboard/new/page.tsx
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
-// List of suggested niches (add/remove as desired)
 const SUGGESTED_NICHES = [
-  "E-Commerce",
-  "SaaS",
-  "Personal Brand",
-  "Education",
-  "Non-Profit",
-  "Healthcare",
-  "Finance",
-  "Fitness",
-  "Real Estate",
-  "Food & Beverage",
+  "E-Commerce", "SaaS", "Personal Brand", "Education",
+  "Non-Profit", "Healthcare", "Finance", "Fitness",
+  "Real Estate", "Food & Beverage",
 ];
 
 const STEPS = [
   "Project Info",
   "Niche",
   "Target Audience",
-  "Marketing Goals & Budget",
+  "Goals & Budget",
   "Competitors",
 ];
 
 export default function NewProjectOnboarding() {
   const [step, setStep] = useState(0);
-  const [anim, setAnim] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
 
-  // Form state
   const [projectName, setProjectName] = useState("");
   const [brandWebsite, setBrandWebsite] = useState("");
-
   const [niche, setNiche] = useState("");
   const [customNiche, setCustomNiche] = useState("");
   const [targetAudience, setTargetAudience] = useState("");
   const [marketingGoals, setMarketingGoals] = useState("");
   const [budget, setBudget] = useState("");
-
   const [competitors, setCompetitors] = useState<{ website_url: string }[]>([
     { website_url: "" },
   ]);
 
-  // Transition animation
-  const nextStep = () => {
-    setAnim("animate-fade-out-left");
-    setTimeout(() => {
-      setStep((s) => s + 1);
-      setAnim("animate-fade-in-right");
-      setTimeout(() => setAnim(""), 400);
-    }, 250);
-  };
-  const prevStep = () => {
-    setAnim("animate-fade-out-right");
-    setTimeout(() => {
-      setStep((s) => s - 1);
-      setAnim("animate-fade-in-left");
-      setTimeout(() => setAnim(""), 400);
-    }, 250);
-  };
+  const nextStep = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const prevStep = () => setStep((s) => Math.max(s - 1, 0));
 
-  // Reset animation on step change
-  useEffect(() => {
-    setAnim("");
-  }, [step]);
-
-  // Backend submission
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -106,228 +74,233 @@ export default function NewProjectOnboarding() {
     }
   }
 
-  // ADD transitions in your globals.css:
-  // .animate-fade-out-left { animation: fadeOutLeft .25s both; }
-  // .animate-fade-in-right { animation: fadeInRight .4s both; }
-  // .animate-fade-out-right { animation: fadeOutRight .25s both; }
-  // .animate-fade-in-left { animation: fadeInLeft .4s both; }
-  // (add simple keyframes: you can use framer-motion or tailwind-animate if you want, otherwise add keyframes in css)
+  const slideVariants = {
+    enter: (direction: number) => ({
+      x: direction > 0 ? 60 : -60,
+      opacity: 0,
+    }),
+    center: { x: 0, opacity: 1 },
+    exit: (direction: number) => ({
+      x: direction < 0 ? 60 : -60,
+      opacity: 0,
+    }),
+  };
+
+  const [direction, setDirection] = useState(0);
+
+  const goNext = () => {
+    setDirection(1);
+    setTimeout(() => nextStep(), 0);
+  };
+  const goBack = () => {
+    setDirection(-1);
+    setTimeout(() => prevStep(), 0);
+  };
+
+  if (done) {
+    return (
+      <div className="max-w-2xl mx-auto px-6 py-16">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="card-elevate p-12 text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-display font-bold text-zinc-900 mb-2">Project Created!</h2>
+          <p className="text-zinc-500 mb-8 max-w-sm mx-auto">
+            Your project is ready. Head to your dashboard to run your first analysis.
+          </p>
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-krato text-white font-semibold rounded-xl shadow-md shadow-krato/20 hover:bg-krato-light transition"
+          >
+            Go to Dashboard
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-neu-bg px-4 py-10">
-      <div className="max-w-xl w-full bg-white shadow-neu rounded-neu px-12 py-12 animate-in fade-in duration-500">
-        {!done ? (
-          <form onSubmit={handleSubmit}>
-            {/* Step Indicator */}
-            <div className="flex items-center mb-8">
-              {STEPS.map((label, i) => (
-                <div key={i} className="flex items-center">
-                  <div
-                    className={`w-6 h-6 flex items-center justify-center rounded-full font-bold text-sm ${
-                      i <= step
-                        ? "bg-krato text-white"
-                        : "bg-neu-edge text-neu-text"
-                    }`}
-                  >
-                    {i + 1}
-                  </div>
-                  {i < STEPS.length - 1 && (
-                    <div className="h-1 w-7 bg-neu-edge mx-1 rounded" />
-                  )}
-                </div>
-              ))}
+    <div className="max-w-2xl mx-auto px-6 py-10">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-10"
+      >
+        <h1 className="text-3xl font-display font-bold text-zinc-900 mb-2">New Project</h1>
+        <p className="text-zinc-500 text-sm">Set up your marketing intelligence project in a few steps.</p>
+      </motion.div>
+
+      {/* Progress Indicator */}
+      <div className="flex items-center gap-2 mb-10">
+        {STEPS.map((label, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-2">
+            <div className="w-full h-1.5 rounded-full overflow-hidden bg-zinc-100">
+              <motion.div
+                className="h-full bg-krato rounded-full"
+                initial={false}
+                animate={{ width: i <= step ? "100%" : "0%" }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+              />
             </div>
+            <span className={`text-xs font-medium transition-colors ${
+              i <= step ? "text-krato" : "text-zinc-400"
+            }`}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
 
-            <h1 className="text-2xl font-display font-bold text-krato mb-3 text-center">
-              {STEPS[step]}
-            </h1>
-
+      {/* Form Card */}
+      <form onSubmit={handleSubmit}>
+        <div className="card-elevate p-8 min-h-[320px] overflow-hidden">
+          <AnimatePresence mode="wait" custom={direction}>
             {/* Step 1: Project Info */}
-            <div className={step === 0 ? `${anim}` : "hidden"}>
-              <label className="block mb-4">
-                <span className="text-neu-text font-semibold">Project Name</span>
-                <input
-                  className="mt-1 w-full rounded-neu px-4 py-2 bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
-                  placeholder="e.g. Growthify"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
-                  required
-                  maxLength={40}
-                />
-              </label>
-              <label className="block mb-6">
-                <span className="text-neu-text font-semibold">Brand Website URL</span>
-                <input
-                  className="mt-1 w-full rounded-neu px-4 py-2 bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
-                  placeholder="e.g. https://growthify.com"
-                  type="url"
-                  value={brandWebsite}
-                  onChange={(e) => setBrandWebsite(e.target.value)}
-                  required
-                />
-              </label>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="rounded-full bg-krato text-white font-semibold px-8 py-2 shadow transition hover:opacity-90"
-                  onClick={nextStep}
-                  disabled={!projectName || !brandWebsite}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            {step === 0 && (
+              <motion.div key="step0" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                <h2 className="text-xl font-display font-bold text-zinc-900 mb-6">Project Information</h2>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-2">Project Name</label>
+                    <input
+                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
+                      placeholder="e.g. Growthify"
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                      required
+                      maxLength={40}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-2">Brand Website URL</label>
+                    <input
+                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
+                      placeholder="e.g. https://growthify.com"
+                      type="url"
+                      value={brandWebsite}
+                      onChange={(e) => setBrandWebsite(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Step 2: Niche */}
-            <div className={step === 1 ? `${anim}` : "hidden"}>
-              <div className="mb-4">
-                <div className="font-semibold text-neu-text mb-2">Select a Niche</div>
-                <div className="flex flex-wrap gap-2">
+            {step === 1 && (
+              <motion.div key="step1" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                <h2 className="text-xl font-display font-bold text-zinc-900 mb-2">Select a Niche</h2>
+                <p className="text-zinc-400 text-sm mb-6">Choose from suggestions or add your own.</p>
+                <div className="flex flex-wrap gap-2 mb-5">
                   {SUGGESTED_NICHES.map((n) => (
                     <button
                       key={n}
                       type="button"
-                      className={`px-4 py-2 rounded-full border ${
+                      className={`px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
                         niche === n
-                          ? "bg-krato text-white border-krato"
-                          : "bg-neu-surface text-neu-text border-neu-edge"
-                      } transition`}
-                      onClick={() => {
-                        setNiche(n);
-                        setCustomNiche("");
-                      }}
+                          ? "bg-krato text-white border-krato shadow-md shadow-krato/20"
+                          : "bg-white text-zinc-600 border-zinc-200 hover:border-krato/30 hover:text-krato"
+                      }`}
+                      onClick={() => { setNiche(n); setCustomNiche(""); }}
                     >
                       {n}
                     </button>
                   ))}
                 </div>
-                <div className="mt-4">
-                  <input
-                    className="rounded-neu px-4 py-2 w-full bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
-                    value={customNiche}
-                    onChange={(e) => {
-                      setCustomNiche(e.target.value);
-                      setNiche("");
-                    }}
-                    placeholder="Or add your own niche"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  className="rounded-full text-krato px-8 py-2 transition hover:bg-neu-surface"
-                  onClick={prevStep}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full bg-krato text-white font-semibold px-8 py-2 shadow transition hover:opacity-90"
-                  onClick={nextStep}
-                  disabled={!(niche || customNiche)}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+                <input
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
+                  value={customNiche}
+                  onChange={(e) => { setCustomNiche(e.target.value); setNiche(""); }}
+                  placeholder="Or add your own niche"
+                />
+              </motion.div>
+            )}
 
             {/* Step 3: Target Audience */}
-            <div className={step === 2 ? `${anim}` : "hidden"}>
-              <label className="block mb-6">
-                <span className="text-neu-text font-semibold">
-                  Who is your target audience?
-                </span>
+            {step === 2 && (
+              <motion.div key="step2" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                <h2 className="text-xl font-display font-bold text-zinc-900 mb-2">Target Audience</h2>
+                <p className="text-zinc-400 text-sm mb-6">Describe your ideal customers or users.</p>
                 <input
-                  className="mt-1 w-full rounded-neu px-4 py-2 bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
-                  placeholder="Describe your ideal customers or users"
+                  className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
+                  placeholder="e.g. Small business owners aged 25-45 interested in digital marketing"
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
-                  maxLength={80}
+                  maxLength={120}
                   required
                 />
-              </label>
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  className="rounded-full text-krato px-8 py-2 transition hover:bg-neu-surface"
-                  onClick={prevStep}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full bg-krato text-white font-semibold px-8 py-2 shadow transition hover:opacity-90"
-                  onClick={nextStep}
-                  disabled={!targetAudience}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+              </motion.div>
+            )}
 
-            {/* Step 4: Marketing Goals & Budget */}
-            <div className={step === 3 ? `${anim}` : "hidden"}>
-              <label className="block mb-4">
-                <span className="text-neu-text font-semibold">
-                  What are your main marketing goals?
-                </span>
-                <input
-                  className="mt-1 w-full rounded-neu px-4 py-2 bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
-                  placeholder="e.g. Acquire leads, Brand awareness"
-                  value={marketingGoals}
-                  onChange={(e) => setMarketingGoals(e.target.value)}
-                  maxLength={80}
-                  required
-                />
-              </label>
-              <label className="block mb-6">
-                <span className="text-neu-text font-semibold">Monthly Budget (USD)</span>
-                <input
-                  type="number"
-                  className="mt-1 w-full rounded-neu px-4 py-2 bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
-                  placeholder="e.g. 1000"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  min={0}
-                />
-              </label>
-              <div className="flex justify-between">
-                <button
-                  type="button"
-                  className="rounded-full text-krato px-8 py-2 transition hover:bg-neu-surface"
-                  onClick={prevStep}
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  className="rounded-full bg-krato text-white font-semibold px-8 py-2 shadow transition hover:opacity-90"
-                  onClick={nextStep}
-                  disabled={!marketingGoals}
-                >
-                  Next
-                </button>
-              </div>
-            </div>
+            {/* Step 4: Goals & Budget */}
+            {step === 3 && (
+              <motion.div key="step3" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                <h2 className="text-xl font-display font-bold text-zinc-900 mb-6">Goals & Budget</h2>
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-2">Marketing Goals</label>
+                    <input
+                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
+                      placeholder="e.g. Acquire leads, Brand awareness"
+                      value={marketingGoals}
+                      onChange={(e) => setMarketingGoals(e.target.value)}
+                      maxLength={120}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-zinc-700 mb-2">Monthly Budget (USD)</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
+                      placeholder="e.g. 1000"
+                      value={budget}
+                      onChange={(e) => setBudget(e.target.value)}
+                      min={0}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
             {/* Step 5: Competitors */}
-            <div className={step === 4 ? `${anim}` : "hidden"}>
-              <div className="mb-6">
-                <div className="font-semibold text-neu-text mb-1">Add up to 5 competitors</div>
-                <div className="flex flex-col gap-3">
+            {step === 4 && (
+              <motion.div key="step4" custom={direction} variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.3 }}>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-xl font-display font-bold text-zinc-900">Competitors</h2>
+                    <p className="text-zinc-400 text-sm">Add up to 5 competitor websites.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-xl border border-krato/30 text-krato text-sm font-medium hover:bg-krato/5 transition"
+                    disabled={competitors.length >= 5}
+                    onClick={() => setCompetitors((prev) => [...prev, { website_url: "" }])}
+                  >
+                    + Add
+                  </button>
+                </div>
+                <div className="space-y-3">
                   {competitors.map((c, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <input
                         type="url"
-                        className="flex-1 rounded-neu px-4 py-2 bg-neu-surface border border-neu-edge focus:outline-none focus:ring-2 focus:ring-krato"
+                        className="flex-1 px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:outline-none focus:border-krato/50 focus:ring-1 focus:ring-krato/20 transition"
                         placeholder={`Competitor website #${idx + 1}`}
                         value={c.website_url}
                         onChange={(e) =>
                           setCompetitors((prev) =>
-                            prev.map((v, i) =>
-                              i === idx ? { ...v, website_url: e.target.value } : v
-                            )
+                            prev.map((v, i) => (i === idx ? { ...v, website_url: e.target.value } : v))
                           )
                         }
                         maxLength={80}
@@ -335,86 +308,66 @@ export default function NewProjectOnboarding() {
                       {competitors.length > 1 && (
                         <button
                           type="button"
-                          className="rounded-full bg-red-100 text-red-600 font-bold px-3 py-1"
-                          onClick={() =>
-                            setCompetitors((prev) =>
-                              prev.filter((_, i) => i !== idx)
-                            )
-                          }
+                          className="w-10 h-10 rounded-xl bg-red-50 text-red-400 hover:bg-red-100 hover:text-red-500 flex items-center justify-center transition"
+                          onClick={() => setCompetitors((prev) => prev.filter((_, i) => i !== idx))}
                         >
-                          &times;
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </button>
                       )}
                     </div>
                   ))}
                 </div>
-                <button
-                  type="button"
-                  className="mt-4 mb-1 rounded-full border-2 border-krato text-krato px-4 py-1 font-semibold hover:bg-krato-light transition"
-                  disabled={competitors.length >= 5}
-                  onClick={() =>
-                    setCompetitors((prev) => [...prev, { website_url: "" }])
-                  }
-                >
-                  + Add Competitor
-                </button>
-              </div>
-              {error && (
-                <div className="mb-2 text-red-500">{error}</div>
-              )}
-              <div className="flex justify-between items-center">
-                <button
-                  type="button"
-                  className="rounded-full text-krato px-8 py-2 transition hover:bg-neu-surface"
-                  onClick={prevStep}
-                >
-                  Back
-                </button>
-                <button
-                  className="rounded-full bg-krato text-white font-semibold px-8 py-2 shadow transition hover:opacity-90 flex items-center gap-2"
-                  disabled={loading}
-                  type="submit"
-                >
-                  {loading ? (
-                    <span className="animate-spin w-4 h-4 border-2 border-t-transparent border-white rounded-full" />
-                  ) : (
-                    "Create Project"
-                  )}
-                </button>
-              </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Error */}
+          {error && (
+            <div className="mt-4 flex items-center gap-2 text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+              {error}
             </div>
-          </form>
-        ) : (
-          <div className="flex flex-col items-center py-12">
-            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-6">
-              <svg className="w-10 h-10 text-green-500" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-            </div>
-            <h2 className="text-2xl font-bold font-display text-krato mb-2">Project Created!</h2>
-            <p className="text-gray-600 mb-6 text-center">
-              Your project has been onboarded successfully. You can now view it in your dashboard.
-            </p>
-            <a
-              href="/dashboard"
-              className="rounded-full bg-krato text-white font-semibold px-8 py-2 shadow transition hover:opacity-90"
+          )}
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center justify-between mt-6">
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={step === 0}
+            className="px-5 py-2.5 text-sm font-medium text-zinc-500 hover:text-zinc-900 disabled:opacity-0 disabled:pointer-events-none transition"
+          >
+            &larr; Back
+          </button>
+
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={goNext}
+              className="px-6 py-2.5 bg-krato text-white text-sm font-semibold rounded-xl shadow-md shadow-krato/20 hover:bg-krato-light transition"
             >
-              Go to Dashboard
-            </a>
-          </div>
-        )}
-      </div>
-      {/* Add minimal CSS for transitions (add these to your globals.css): */}
-      <style>
-        {`
-        @keyframes fadeOutLeft { to { opacity:0; transform: translateX(-40px);} }
-        @keyframes fadeInRight { from {opacity:0; transform: translateX(40px);} to {opacity:1; transform:translateX(0);} }
-        @keyframes fadeOutRight { to { opacity:0; transform: translateX(40px);} }
-        @keyframes fadeInLeft { from {opacity:0; transform: translateX(-40px);} to {opacity:1; transform:translateX(0);} }
-        .animate-fade-out-left { animation: fadeOutLeft .25s both; }
-        .animate-fade-in-right { animation: fadeInRight .4s both; }
-        .animate-fade-out-right { animation: fadeOutRight .25s both; }
-        .animate-fade-in-left { animation: fadeInLeft .4s both; }
-        `}
-      </style>
+              Next &rarr;
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2.5 bg-krato text-white text-sm font-semibold rounded-xl shadow-md shadow-krato/20 hover:bg-krato-light transition disabled:opacity-50 flex items-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Project"
+              )}
+            </button>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
