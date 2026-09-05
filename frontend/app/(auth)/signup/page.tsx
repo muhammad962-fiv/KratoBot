@@ -7,6 +7,8 @@ import { motion } from "framer-motion";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+console.log("KRATOBOT API URL:", API_URL);
+
 export default function SignupPage() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
